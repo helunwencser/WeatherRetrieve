@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Listening to DOM events</title>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div>
+    <button type = "submit" id = "submit">Get Weather</button>
+    </div>
+    <script>
+		function initMap() {
+		  var submit = document.getElementById('submit');
+		  var mapDiv = document.getElementById('map');
+		  var map = new google.maps.Map(mapDiv, {
+		    zoom: 8,
+		    center: new google.maps.LatLng(-34.397, 150.644)
+		  });
+		
+		  // We add a DOM event here to show an alert if the DIV containing the
+		  // map is clicked.
+		  google.maps.event.addDomListener(submit, 'click', function() {
+			  var requestString = "http://api.openweathermap.org/data/2.5/weather?q=London,uk&appid=44db6a862fba0b067b1930da0d769e98";
+			  var request = new XMLHttpRequest();
+			  request.onload = function() {
+				    var results = JSON.parse(this.responseText);
+				    console.log(results);
+			  };
+			  request.open("get", requestString, true);
+			  request.send();
+		  });
+		}
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVreCBSRR9nSVilsp4bfFUSyWHLaZVNy8&signed_in=true&callback=initMap" async defer></script>
+  </body>
+</html>
