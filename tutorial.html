@@ -28,47 +28,141 @@
   	</div>
   
   	<div class = "col-md-4">
-  		<label for = "date">Date and time: </label>
-  		<input type = "datetime-local" id = "date"/>
+  		<label for = "date">Date: </label>
+  		<input type = "date" id = "date"/>
   	</div>
   
   	<div class = "col-md-3">
   		<button type = "submit" class = "btn btn-success" id = "submit">Get Weather</button>
   	</div>
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAVreCBSRR9nSVilsp4bfFUSyWHLaZVNy8&signed_in=true&callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?callback=initMap" async defer></script>
     <script>
     	var map;
+    	var infowindow;
+    	var marker;
+    	
 		function initMap() {
 		  var submit = document.getElementById('submit');
 		  var mapDiv = document.getElementById('map');
 		  map = new google.maps.Map(mapDiv, {
 		    zoom: 8,
-		    center: new google.maps.LatLng(-34.397, 150.644)
+		    center: new google.maps.LatLng(37.3903602, -122.0904911)
 		  });
-		
+		  
+		  var position = new google.maps.LatLng(37.3903602, -122.0904911);
+          marker = new google.maps.Marker({
+              position: position,
+              map: map,
+            });
+          marker.setVisible(false);
+		  
 		  // We add a DOM event here to show an alert if the DIV containing the
 		  // map is clicked.
 		  google.maps.event.addDomListener(submit, 'click', function() {
 			  var location = document.getElementById('location').value;
 			  var date = document.getElementById('date').value;
-			  var requestString = "http://api.openweathermap.org/data/2.5/weather?q="
+			  var requestString;
+			  if(date){
+				  var today = new Date();
+				  var diff = Math.round(Math.abs((today - new Date(date)))/(1000*60*60*24));
+				  if(diff >= 16){
+					  window.alert("Sorry, we cann't forecast such long time");
+					  return;
+					}
+				  requestString = "http://api.openweathermap.org/data/2.5/forecast/daily?q="
+						  + location
+						  + "&mode=json&units=metric&cnt=16&appid=44db6a862fba0b067b1930da0d769e98" ;
+			  }else{
+				  requestString = "http://api.openweathermap.org/data/2.5/weather?q="
 					  + location 
-					  + "&appid=44db6a862fba0b067b1930da0d769e98";
+					  + "&appid=44db6a862fba0b067b1930da0d769e98";				  
+			  }
+			  console.log(requestString);
 			  var request = new XMLHttpRequest();
 			  request.onload = function() {
 				    map.data.forEach(function(feature) {
 				        map.data.remove(feature);
 				    });
 				    var results = JSON.parse(this.responseText);
-				    map.setCenter(new google.maps.LatLng(results.coord.lat, results.coord.lon));
-				    map.data.addGeoJson(jsonToGeoJson(results));
+				    var geoJson;
+				    if(date){
+						var today = new Date();
+						var diff = Math.round(Math.abs((today - new Date(date)))/(1000*60*60*24));
+						console.log(diff);
+						position = new google.maps.LatLng(results.city.coord.lat, results.city.coord.lon);
+						map.setCenter(position);
+						geoJson = jsonToGeoJsonOfForecast(results, diff);
+				    }else{
+					    console.log(results);
+					    position = new google.maps.LatLng(results.coord.lat, results.coord.lon);
+					    map.setCenter(position);
+					    geoJson = jsonToGeoJson(results);
+
+				    }
+				    map.data.addGeoJson(geoJson);
+				    var content = "city: " + geoJson.properties.city + "<br>" +
+				    			 	"weather: " + geoJson.properties.weather + "<br>" +
+        		 					"temperature: " + geoJson.properties.temperature + "<br>" +
+        		 					"min: " + geoJson.properties.min + "<br>" + 
+        		 					"max: " + geoJson.properties.max + "<br>" + 
+        		 					"humidity: " + geoJson.properties.humidity + "<br>" + 
+        		 					"pressure: " + geoJson.properties.pressure + "<br>" + 
+        		 					"wind speed: " + geoJson.properties.windSpeed + "<br>" + 
+        		 					"wind degree: " + geoJson.properties.windDegrees + "<br>";
+        		 	if(infowindow){
+        		 		infowindow.setContent(content);
+        		 	}else{
+    				    infowindow = new google.maps.InfoWindow({
+    		                content: content  
+    		             });	
+        		 	}
+		           marker.setVisible(true);
+		           marker.setPosition(position);
+		           infowindow.open(map, marker);
 			  };
 			  request.open("get", requestString, true);
 			  request.send();
 		  });
 		}
+
 		
+	  // For each result that comes back, convert the data to geoJSON
+	  var jsonToGeoJsonOfForecast = function (weatherItem, i) {
+	    var feature = {
+	      type: "Feature",
+	      properties: {
+	        city: weatherItem.city.name,
+	        weather: weatherItem.list[i].weather[0].main,
+	        temperature: weatherItem.list[i].temp.day,
+	        min: weatherItem.list[i].temp.min,
+	        max: weatherItem.list[i].temp.max,
+	        humidity: weatherItem.list[i].humidity,
+	        pressure: weatherItem.list[i].pressure,
+	        windSpeed: weatherItem.list[i].speed,
+	        windDegrees: weatherItem.list[i].deg,
+	        icon: "http://openweathermap.org/img/w/"
+	              + weatherItem.list[i].weather[0].icon  + ".png",
+	        coordinates: [weatherItem.city.coord.lon, weatherItem.city.coord.lat]
+	      },
+	      geometry: {
+	        type: "Point",
+	        coordinates: [weatherItem.city.coord.lon, weatherItem.city.coord.lat]
+	      }
+	    };
+	    // Set the custom marker icon
+	    map.data.setStyle(function(feature) {
+	      return {
+	        icon: {
+	          url: feature.getProperty('icon'),
+	          anchor: new google.maps.Point(25, 25)
+	        }
+	      };
+	    });
+	    // returns object
+	    return feature;
+	  };
+		  
 	  // For each result that comes back, convert the data to geoJSON
 	  var jsonToGeoJson = function (weatherItem) {
 	    var feature = {
